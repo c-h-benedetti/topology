@@ -35,6 +35,22 @@ bool GMap::is_free(degree_t degree, id_t dart) const
 */
 bool GMap::is_valid() const
 {
+	for(idalphamap_t::const_iterator it = alpha.begin() ; it != alpha.end() ; std::next(it, 1)){
+		const id_t& dart = it->first();
+		for(degree_t degree = 0 ; degree < 2 ; degree++){
+			const id_t& alpha_deg_of_dart = it->second[degree];
+			if(dart == alpha_deg_of_dart) return false;
+			if(dart != alpha(degree, alpha_deg_of_dart)) return false;
+		}
+	}
+
+	degreelist_t alphas = {0, 2, 0, 2};
+	for(id_t dart : darts()){
+		if(alpha(alphas, dart) != dart)
+			return false;
+	}
+
+	return true;
 }
 
 /* 
@@ -43,11 +59,16 @@ bool GMap::is_valid() const
 */
 GMap::id_t GMap::add_dart()
 {
+	id_t dart = maxid;
+	++maxid;
+	alphas[dart] = alpha_container_t(dart, dart, dart);
+	return dart;
 }
 
 // Link the two darts with a relation alpha_degree if they are both free.
 bool GMap::link_darts(degree_t degree, id_t dart1, id_t dart2)
 {
+	
 }
 
 /* 
@@ -56,6 +77,7 @@ bool GMap::link_darts(degree_t degree, id_t dart1, id_t dart2)
 */
 GMap::idlist_t GMap::orbit(degreelist_t alphas, id_t dart)
 {
+
 }
 
 /*
@@ -66,6 +88,7 @@ GMap::idlist_t GMap::orbit(degreelist_t alphas, id_t dart)
 */
 GMap::idlist_t GMap::orderedorbit(degreelist_t list_of_alpha_value, id_t dart)
 {
+
 }
 
 
