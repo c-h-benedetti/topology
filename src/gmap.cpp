@@ -68,7 +68,7 @@ GMap::id_t GMap::add_dart()
 // Link the two darts with a relation alpha_degree if they are both free.
 bool GMap::link_darts(degree_t degree, id_t dart1, id_t dart2)
 {
-	
+
 }
 
 /* 
@@ -77,7 +77,19 @@ bool GMap::link_darts(degree_t degree, id_t dart1, id_t dart2)
 */
 GMap::idlist_t GMap::orbit(degreelist_t alphas, id_t dart)
 {
+	idlist_t result;
+	idset_t marked;
+	idlist_t toprocess = {dart};
 
+	while(!toprocess.empty()){
+		id_t d = toprocess.front();
+		toprocess.erase(toprocess.begin());
+		if(marked.count(d) == 0){
+			result.push_back(d);
+			marked.insert(d);
+			/* not finished*/
+		}
+	}
 }
 
 /*
