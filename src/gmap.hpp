@@ -24,7 +24,7 @@ public:
     // a triplet of alpha value
     struct alpha_container_t {
         alpha_container_t(id_t a0 = 0, id_t a1 = 0, id_t a2 = 0) {
-            values[0] = a0; values[1] = a1; values[2] = a2; 
+            values[0] = a0; values[1] = a1; values[2] = a2;
         }
         id_t& operator[](degree_t index) { return values[index]; }
         const id_t& operator[](degree_t index) const { return values[index]; }
@@ -37,7 +37,7 @@ public:
 
     // a type for list of id. usefull for processing
     typedef std::vector<id_t> idlist_t;
-    // a type for set of id . usefull to check if darts have already been processed. 
+    // a type for set of id . usefull to check if darts have already been processed.
     typedef std::unordered_set<id_t> idset_t;
     // a type of list of degree
     typedef std::vector<degree_t> degreelist_t;
@@ -57,34 +57,34 @@ public:
     // Return the application of a composition of alphas on dart
     id_t alpha(degreelist_t degrees, id_t dart) const;
 
-    
-    //  Test if dart is free for alpha_degree (if it is a fixed point) 
+
+    //  Test if dart is free for alpha_degree (if it is a fixed point)
     bool is_free(degree_t degree, id_t dart) const;
 
     /*
-        Test the validity of the structure. 
+        Test the validity of the structure.
         Check that alpha_0 and alpha_1 are involutions with no fixed points.
         Check if alpha_0 o alpha_2 is an involution
     */
     bool is_valid() const;
 
-    /* 
-        Create a new dart and return its id. 
-        Set its alpha_i to itself (fixed points) 
+    /*
+        Create a new dart and return its id.
+        Set its alpha_i to itself (fixed points)
     */
     id_t add_dart();
 
     // Link the two darts with a relation alpha_degree if they are both free.
-    bool link_darts(degree_t degree, id_t dart1, id_t dart2); 
+    bool link_darts(degree_t degree, id_t dart1, id_t dart2);
 
     // Print for each dart, the value of the different alpha applications.
     void print_alphas();
 
-    /* 
+    /*
         Return the orbit of dart using a list of alpha relation.
         Example of use : gmap.orbit(0,[0,1]).
     */
-    idlist_t orbit(degreelist_t alphas, id_t dart);
+    idlist_t orbit(degreelist_t alphas, id_t dart) const;
 
     /*
         Return the ordered orbit of dart using a list of alpha relations by applying
@@ -94,20 +94,20 @@ public:
     */
     idlist_t orderedorbit(degreelist_t list_of_alpha_value, id_t dart);
 
-    /* 
-        Return one dart per element of degree. For this, consider all darts as initial set S. 
-        Take the first dart d, remove from the set all darts of the orbit starting from d and 
-        corresponding to element of degree degree. Take then next element from set S and do the 
-        same until S is empty. 
-        Return all darts d that were used. 
+    /*
+        Return one dart per element of degree. For this, consider all darts as initial set S.
+        Take the first dart d, remove from the set all darts of the orbit starting from d and
+        corresponding to element of degree degree. Take then next element from set S and do the
+        same until S is empty.
+        Return all darts d that were used.
     */
-    idlist_t elements( degree_t degree);
+    idlist_t elements( degree_t degree) const;
 
     /*
         Sew two elements of degree 'degree' that start at dart1 and dart2.
         Determine first the orbits of dart to sew and heck if they are compatible.
         Sew pairs of corresponding darts
-        # and if they have different embedding  positions, merge them. 
+        # and if they have different embedding  positions, merge them.
     */
     bool sew_dart(degree_t degree, id_t dart1, id_t dart2);
 
@@ -138,19 +138,19 @@ public:
     ~EmbeddedGMap() {}
 
     /*
-        Check if a dart of the orbit representing the vertex has already been 
+        Check if a dart of the orbit representing the vertex has already been
         associated with a value in propertydict. If yes, return this dart, else
         return the dart passed as argument.
     */
-    id_t get_embedding_dart(id_t dart) ;
+    id_t get_embedding_dart(id_t dart) const;
 
 
 
-    // Retrieve the coordinates associated to the vertex <alpha_1, alpha_2>(dart) 
-    const T& get_property(id_t dart) {
+    // Retrieve the coordinates associated to the vertex <alpha_1, alpha_2>(dart)
+    const T& get_property(id_t dart) const {
         id_t d = get_embedding_dart(dart);
         if (properties.count(d) == 0) { throw d; }
-        return properties[d];
+        return properties.at(d);
     }
 
 
@@ -169,18 +169,30 @@ protected:
 
 
 template<class T>
-GMap::id_t EmbeddedGMap<T>::get_embedding_dart(id_t dart){
+GMap::id_t EmbeddedGMap<T>::get_embedding_dart(id_t dart) const{
+
+    idlist_t ordbit_dart = this->orbit({1, 2}, dart);
+    idlist_t::const_iterator it = ordbit_dart.begin();
+
+    while(it != ordbit_dart.end()){
+        if(this->properties.find(*it) != this->properties.end()){
+            return *it;
+        }
+        it++;
+    }
+
+    return dart;
 }
 
 
 /*------------------------------------------------------------------------*/
 
 
-/* 
+/*
     The GMap3D extent GMap class with embedding.
     The property added is an index of position.
     A list of indexed position is also maintained.
-*/ 
+*/
 class GMap3D : public EmbeddedGMap<id_t> {
 public:
 
@@ -193,7 +205,7 @@ public:
     // Compute the center of each element.
     vec3_t element_center(degree_t degree, id_t dart);
 
-    vec3_t get_position(id_t dart) {
+    vec3_t get_position(id_t dart) const{
         return positions[get_property(dart)];
     }
 
@@ -204,7 +216,7 @@ public:
         positions.push_back(pos);
         set_property(dart, pid);
     }
- 
+
     /*
         Compute the dual of the object
         Create a new GMap object with the same darts but reversed alpha relations
@@ -227,5 +239,3 @@ public:
 int display(const GMap3D& gmap);
 
 /*------------------------------------------------------------------------*/
-
-

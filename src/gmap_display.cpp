@@ -28,6 +28,42 @@ using namespace glm;
 
 /*******************************************************************************/
 
+u_int pick_vertex(const GMap::idlist_t& sommets, const GMap::id_t source, const GMap3D& gmap){
+    for(u_int i = 0 ; i < sommets.size() ; i++){ // Pour chaque 0-element:
+        GMap::idlist_t orbit_elem_0 = gmap.orbit({1, 2}, sommets[i]); // Reconstituer son orbite directe
+        if(std::count(orbit_elem_0.begin(), orbit_elem_0.end(), source) > 0){ // Si le brin de la face fait partie du 0-element
+            return i; // On a trouve un vertex de la face
+        }
+    }
+    return source;
+}
+
+void quad_to_triangles(std::vector<u_int>& quad){
+    u_int d = quad.back();
+    quad.pop_back();
+    quad.push_back(quad[0]);
+    quad.push_back(quad[2]);
+    quad.push_back(d);
+}
+
+void transfert_temp_to_def(std::vector< std::vector<u_int> >& temp, std::vector<short unsigned int>& def){
+    for(u_int i = 0 ; i < temp.size() ; i++){
+        for(u_int k = 0 ; k < temp[i].size() ; k++){
+            def.push_back(temp[i][k]);
+        }
+    }
+}
+
+void compute_normals(const std::vector<glm::vec3>& idx_vertices, const std::vector<unsigned short int>& ids, std::vector<glm::vec3>& normales){
+    normales.clear();
+    for(u_int i = 0 ; i < ids.size() ; i += 3){
+        glm::vec3 AB = idx_vertices[ids[i+1]] - idx_vertices[ids[i+0]];
+        glm::vec3 AC = idx_vertices[ids[i+2]] - idx_vertices[ids[i+0]];
+        glm::vec3 N = glm::normalize(glm::cross(AB, AC));
+        normales.push_back(N);
+    }
+}
+
 int display(const GMap3D& gmap)
 {
     // Initialise GLFW
@@ -66,7 +102,7 @@ int display(const GMap3D& gmap)
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     // Hide the mouse and enable unlimited mouvement
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Set the mouse at the center of the screen
     glfwPollEvents();
@@ -103,6 +139,44 @@ int display(const GMap3D& gmap)
 
     // transform the gmap into set of triangles
     // TOCOMPLETE
+    GMap::idlist_t sommets = gmap.elements(0);
+	GMap::idlist_t aretes = gmap.elements(1);
+	GMap::idlist_t faces = gmap.elements(2);
+    std::vector< std::vector<u_int> > temp_faces_indices(faces.size(), std::vector<u_int>());
+
+    /*GMap::idlist_t infos = GMap::idlist_t(sommets.size());
+
+    for(u_int i = 0 ; i < sommets.size() ; i++){ // Pour chaque 0-element, là où l'info est stockée
+        infos[i] = gmap.get_embedding_dart(sommets[i]);
+    }*/
+
+    for(u_int i = 0 ; i < sommets.size() ; i++){
+        //property.push_back(gmap.get_property(sommets[i]));
+        property.push_back(1);
+        indexed_vertices.push_back(gmap.get_position(sommets[i]));
+    }
+
+    u_int j = 0;
+    for(GMap::id_t face : faces){
+        GMap::id_t i = face;
+        do{
+            u_int id_sommet = pick_vertex(sommets, i, gmap); // Dans la boucle, permet de connaitre les 4 indices de vertices de la face
+            temp_faces_indices[j].push_back(id_sommet);
+            i = gmap.alpha({0, 1}, i); // Toujours dans le même sens
+        }while(i != face);
+        j++;
+    }
+
+    for(u_int i = 0 ; i < temp_faces_indices.size() ; i++){
+        quad_to_triangles(temp_faces_indices[i]);
+    }
+
+    transfert_temp_to_def(temp_faces_indices, indices);
+    compute_normals(indexed_vertices, indices, indexed_normals);
+    for(u_int i = 0 ; i < indexed_normals.size() ; i++){
+        std::cout << indexed_normals[i].x << "  " << indexed_normals[i].y << "  " << indexed_normals[i].z << std::endl;
+    }
+
     // for the property, you can first use a random value for each vertices.
 
 
@@ -265,4 +339,3 @@ int display(const GMap3D& gmap)
 
     return 0;
 }
-

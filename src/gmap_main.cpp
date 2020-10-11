@@ -4,9 +4,10 @@
 GMap question1(){
     GMap mgmap = GMap::square();
     mgmap.print_alphas();
+    if(mgmap.is_valid()){printf("Map valide\n");}else{printf("Map invalide\n");}
     return mgmap;
 }
-/*
+
 template<class T>
 void print_array(T array, const char * numtype = "%i"){
     printf("[");
@@ -26,6 +27,7 @@ void print_array(T array, const char * numtype = "%i"){
 void question2(){
     GMap mgmap = question1();
     std::vector<unsigned int> expected = {4,4,1};
+
     for (unsigned int i = 0 ; i < 3 ; ++i) {
         GMap::idlist_t ielements = mgmap.elements(i);
         printf( "Element de degree %i :",i);
@@ -56,7 +58,9 @@ GMap3D question4b(){
 
 void question5(){
     GMap3D mgmap = GMap3D::cube();
-    printf("Euler characteristic : %i\n", mgmap.eulercharacteristic());
+    int charac = mgmap.eulercharacteristic();
+    printf("Euler characteristic : %i\n", charac);
+    printf("Euler Group: %d\n", (int)(-(float)charac/2.0 + 1));
 }
 
 
@@ -64,7 +68,7 @@ void question6a() {
     GMap3D mgmap = question4a();
     display(mgmap);
 }
-
+/*
 void question6b() {
     GMap3D mgmap = question4b();
     display(mgmap);
@@ -81,7 +85,9 @@ void question7(){
 }
 */
 int main(){
-    question1();
+    //question1();
+    //question2();
+    question6a();
     puts("End of execution");
     return 0;
 }
