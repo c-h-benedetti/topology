@@ -32,6 +32,8 @@ public:
         // return alpha_container that has flipped value for alpha0 and alpha2.
         alpha_container_t flip() const { return alpha_container_t(values[2],values[1],values[0]); }
 
+        alpha_container_t copy() const { return alpha_container_t(values[0],values[1],values[2]); }
+
         id_t values[3];
     };
 
@@ -170,7 +172,6 @@ protected:
 
 template<class T>
 GMap::id_t EmbeddedGMap<T>::get_embedding_dart(id_t dart) const{
-
     idlist_t ordbit_dart = this->orbit({1, 2}, dart);
     idlist_t::const_iterator it = ordbit_dart.begin();
 

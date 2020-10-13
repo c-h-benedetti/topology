@@ -38,7 +38,7 @@ void main(){
 	// Light emission properties
 	// You probably want to put them as uniforms
 	vec3 LightColor = vec3(1,1,1);
-	float LightPower = 50.0f;
+	float LightPower = 50f;
 
 	// Material properties
     vec3 MaterialDiffuseColor = v_norm; //HSV2RGB(vec3(property_field, 1., 1.));
@@ -68,7 +68,7 @@ void main(){
 	//  - Looking into the reflection -> 1
 	//  - Looking elsewhere -> < 1
 	float cosAlpha = clamp( dot( E,R ), 0,1 );
-
+    //color = v_norm;
 	color =
 		// Ambient : simulates indirect lighting
 		MaterialAmbientColor +

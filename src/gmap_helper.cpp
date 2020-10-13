@@ -114,6 +114,7 @@ GMap3D GMap3D::cube(float xsize, float ysize, float zsize)
     for (unsigned char i = 0; i < 6; ++i)
         squares.push_back(gmap.add_square());
 
+    /*
     // sew top square to lateral squares
     gmap.sew_dart(2, squares[0][0], squares[1][1] );
     gmap.sew_dart(2, squares[0][2], squares[4][1] );
@@ -131,16 +132,33 @@ GMap3D GMap3D::cube(float xsize, float ysize, float zsize)
     gmap.sew_dart(2, squares[2][2], squares[3][7] );
     gmap.sew_dart(2, squares[3][2], squares[4][7] );
     gmap.sew_dart(2, squares[4][2], squares[1][7] );
+    */
+
+    gmap.sew_dart(2, squares[1][5], squares[0][0] );
+    gmap.sew_dart(2, squares[0][7], squares[2][2] );
+    gmap.sew_dart(2, squares[4][1], squares[0][2] );
+
+    gmap.sew_dart(2, squares[0][5], squares[3][0] );
+    gmap.sew_dart(2, squares[4][7], squares[3][2] );
+    gmap.sew_dart(2, squares[3][7], squares[2][4] );
+
+    gmap.sew_dart(2, squares[4][3], squares[1][2] );
+    gmap.sew_dart(2, squares[1][7], squares[2][0] );
+    gmap.sew_dart(2, squares[5][7], squares[2][6] );
+
+    gmap.sew_dart(2, squares[5][3], squares[4][4] );
+    gmap.sew_dart(2, squares[3][5], squares[5][0] );
+    gmap.sew_dart(2, squares[5][5], squares[1][0] );
 
     gmap.set_position(squares[0][0], vec3_t(xsize,  ysize,  zsize));
     gmap.set_position(squares[0][2], vec3_t(xsize,  -ysize, zsize));
     gmap.set_position(squares[0][4], vec3_t(-xsize, -ysize, zsize));
     gmap.set_position(squares[0][6], vec3_t(-xsize, ysize,  zsize));
 
-    gmap.set_position(squares[5][0], vec3_t(xsize,  ysize,  -zsize));
-    gmap.set_position(squares[5][2], vec3_t(xsize,  -ysize, -zsize));
-    gmap.set_position(squares[5][4], vec3_t(-xsize, -ysize, -zsize));
-    gmap.set_position(squares[5][6], vec3_t(-xsize, ysize,  -zsize));
+    gmap.set_position(squares[5][0], vec3_t(-xsize,  ysize,  -zsize));
+    gmap.set_position(squares[5][2], vec3_t(-xsize,  -ysize, -zsize));
+    gmap.set_position(squares[5][4], vec3_t(xsize, -ysize, -zsize));
+    gmap.set_position(squares[5][6], vec3_t(xsize, ysize,  -zsize));
 
     return gmap;
 }

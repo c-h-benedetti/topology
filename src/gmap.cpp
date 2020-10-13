@@ -187,8 +187,23 @@ GMap::id_t EmbeddedGMap<T>::get_embedding_dart(id_t dart)
 
 /*------------------------------------------------------------------------*/
 
-GMap3D GMap3D::dual()
-{
+GMap3D GMap3D::dual(){
+	GMap3D dual_gmap;
+	for(idalphamap_t::const_iterator it = this->alphas.begin() ; it != this->alphas.end() ; it++){
+		dual_gmap.alphas.insert(std::pair<id_t, alpha_container_t>(
+			it->first,
+			it->second.flip()
+		));
+	}
+
+	dual_gmap.maxid = maxid;
+	idlist_t faces = this->elements(2);
+	
+	for(id_t face : faces){
+		vec3_t bary = this->element_center(2, face);
+		dual_gmap.set_position(face, bary);
+	}
+	return dual_gmap;
 }
 
 

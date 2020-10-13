@@ -4,7 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <float.h>
-
+#define EPSILON 0.0001
 // Include GLEW
 #include <GL/glew.h>
 
@@ -21,16 +21,33 @@ using namespace glm;
 #include <common/shader.hpp>
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
+#include <glm/ext.hpp>
+//#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <algorithm>
 
 #include "gmap.hpp"
 
+glm::mat4 model_transfo(1.0f);
+
+void rotate_x(float x = 0.01){
+    vec3 EulerAngles(x, 0, 0);
+    glm::mat4 m = glm::toMat4(quat(EulerAngles));
+    model_transfo = m * model_transfo;
+}
+
+void rotate_y(float y = 0.01){
+    vec3 EulerAngles(0, y, 0);
+    glm::mat4 m = glm::toMat4(quat(EulerAngles));
+    model_transfo = m * model_transfo;
+}
+
 /*******************************************************************************/
 
 u_int pick_vertex(const GMap::idlist_t& sommets, const GMap::id_t source, const GMap3D& gmap){
     for(u_int i = 0 ; i < sommets.size() ; i++){ // Pour chaque 0-element:
-        GMap::idlist_t orbit_elem_0 = gmap.orbit({1, 2}, sommets[i]); // Reconstituer son orbite directe
+        GMap::idlist_t orbit_elem_0 = gmap.orbit({1, 2}, sommets[i]); // Reconstituer son orbite directe (brins du vertex)
         if(std::count(orbit_elem_0.begin(), orbit_elem_0.end(), source) > 0){ // Si le brin de la face fait partie du 0-element
             return i; // On a trouve un vertex de la face
         }
@@ -54,14 +71,51 @@ void transfert_temp_to_def(std::vector< std::vector<u_int> >& temp, std::vector<
     }
 }
 
-void compute_normals(const std::vector<glm::vec3>& idx_vertices, const std::vector<unsigned short int>& ids, std::vector<glm::vec3>& normales){
+void compute_normals(const std::vector<glm::vec3>& idx_vertices, const std::vector<unsigned short int>& ids, std::vector<glm::vec3>& normales, std::vector<float>& weights){
     normales.clear();
     for(u_int i = 0 ; i < ids.size() ; i += 3){
         glm::vec3 AB = idx_vertices[ids[i+1]] - idx_vertices[ids[i+0]];
         glm::vec3 AC = idx_vertices[ids[i+2]] - idx_vertices[ids[i+0]];
-        glm::vec3 N = glm::normalize(glm::cross(AB, AC));
-        normales.push_back(N);
+        glm::vec3 N = glm::cross(AB, AC);
+
+        weights.push_back(glm::length(N));
+        normales.push_back(glm::normalize(N));
     }
+}
+
+glm::vec3 sum(const std::vector<glm::vec3>& v){
+    glm::vec3 accumulator(0.0, 0.0, 0.0);
+    for(std::vector<glm::vec3>::const_iterator it = v.begin() ; it != v.end() ; it++){
+        accumulator += (*it);
+    }
+    return accumulator;
+}
+
+void compute_vertices_normals(const std::vector<glm::vec3>& faces_normals,
+                              const std::vector<short unsigned int>& indices,
+                              const std::vector<glm::vec3>& indexed_vertices,
+                              std::vector<glm::vec3>& indexed_normals,
+                              const std::vector<float>& weights){
+
+    std::vector< std::vector<glm::vec3> > accumulators(indexed_vertices.size(), std::vector<glm::vec3>());
+    for(u_int i = 0 ; i < indices.size() ; i += 3){
+        accumulators[indices[i+0]].push_back(faces_normals[i/3] * weights[i/3]);
+        accumulators[indices[i+1]].push_back(faces_normals[i/3] * weights[i/3]);
+        accumulators[indices[i+2]].push_back(faces_normals[i/3] * weights[i/3]);
+    }
+
+    indexed_normals.clear();
+
+    for(u_int i = 0 ; i < accumulators.size() ; i++){
+        indexed_normals.push_back(glm::normalize(sum(accumulators[i])));
+    }
+
+}
+
+void swap(u_int& a, u_int& b){
+    u_int c = a;
+    a = b;
+    b = c;
 }
 
 int display(const GMap3D& gmap)
@@ -132,52 +186,101 @@ int display(const GMap3D& gmap)
     GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
 
 
-    std::vector<unsigned short> indices; //Triangles concaténés dans une liste
-    std::vector<glm::vec3> indexed_vertices;
-    std::vector<glm::vec3> indexed_normals;
-    std::vector<unsigned int> property;
+    std::vector<unsigned short> indices;
+    std::vector<glm::vec3>      indexed_vertices;
+    std::vector<glm::vec3>      indexed_normals;
+    std::vector<unsigned int>   property;
+    std::vector<float>          weights;
+    std::vector<vec3>           faces_normals;
 
-    // transform the gmap into set of triangles
-    // TOCOMPLETE
-    GMap::idlist_t sommets = gmap.elements(0);
-	GMap::idlist_t aretes = gmap.elements(1);
-	GMap::idlist_t faces = gmap.elements(2);
+
+    GMap::idlist_t sommets = gmap.elements(0); // Liste des sommets
+	GMap::idlist_t faces = gmap.elements(2);   // Liste des faces
+
+    // Contiendra les faces indexées avant qu'elles ne soient découpées en triangles (si besoin)
     std::vector< std::vector<u_int> > temp_faces_indices(faces.size(), std::vector<u_int>());
 
-    /*GMap::idlist_t infos = GMap::idlist_t(sommets.size());
 
-    for(u_int i = 0 ; i < sommets.size() ; i++){ // Pour chaque 0-element, là où l'info est stockée
-        infos[i] = gmap.get_embedding_dart(sommets[i]);
-    }*/
+    // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    // #           Recalage des valeurs entre -1.0 et 1.0                                    #
+    // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+    glm::vec3 p_temp = gmap.get_position(sommets[0]);
+    float min = p_temp.x;
+    float max = p_temp.x;
+
+    // Recherche du min et du max
     for(u_int i = 0 ; i < sommets.size() ; i++){
-        //property.push_back(gmap.get_property(sommets[i]));
-        property.push_back(1);
-        indexed_vertices.push_back(gmap.get_position(sommets[i]));
-    }
+        property.push_back(1); // ???
+        glm::vec3 pos = gmap.get_position(sommets[i]);
 
-    u_int j = 0;
+        for(u_int k = 0 ; k < 3 ; k++){
+            if(pos[k] < min){min = pos[k];}
+            if(pos[k] > max){max = pos[k];}
+        }
+
+        indexed_vertices.push_back(pos); // On profite de la boucle pour récupérer les coordonnées de vertices
+    }
+    float val_norm = (glm::abs(min) > max) ? (glm::abs(min)) : (max); // Prend la plus grande valeur entre max et abs(min)
+
+    for(u_int i = 0 ; i < indexed_vertices.size() ; i++){
+        indexed_vertices[i] /= val_norm+5.0;
+        std::cout << "Vertex[" << i << "] : " << indexed_vertices[i].x << " " << indexed_vertices[i].y << " " << indexed_vertices[i].z << std::endl;
+    }
+    std::cout << "* * * * * * * * * * *" << std::endl;
+
+    // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    // #           Reconstitution des indices de faces :                                     #
+    // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+    u_int j = 0; // Index du tableau de faces temporaire
     for(GMap::id_t face : faces){
-        GMap::id_t i = face;
+        GMap::id_t i = (face % 2 > 0) ? (face) : (gmap.alpha({0}, face)); // S'assurer qu'on par d'un brin impair pour être en sens CCW
+        GMap::id_t stop = i;  // Borne qui marque une boucle de face complète
+
         do{
             u_int id_sommet = pick_vertex(sommets, i, gmap); // Dans la boucle, permet de connaitre les 4 indices de vertices de la face
-            temp_faces_indices[j].push_back(id_sommet);
+            temp_faces_indices[j].push_back(id_sommet); // Récup de l'index du vertex pour ce brin
             i = gmap.alpha({0, 1}, i); // Toujours dans le même sens
-        }while(i != face);
+        }while(i != stop);
+
         j++;
     }
 
+
+    // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    // #           Traitement des faces reconstituées :                                      #
+    // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
     for(u_int i = 0 ; i < temp_faces_indices.size() ; i++){
-        quad_to_triangles(temp_faces_indices[i]);
+        if(temp_faces_indices[i].size() > 3){
+            quad_to_triangles(temp_faces_indices[i]); // Transformation des quads en triangles si pas déjà le cas
+        }
     }
 
-    transfert_temp_to_def(temp_faces_indices, indices);
-    compute_normals(indexed_vertices, indices, indexed_normals);
+    transfert_temp_to_def(temp_faces_indices, indices); // Ecrit le tableau des indices de faces concaténés
+    compute_normals(indexed_vertices, indices, faces_normals, weights); // Calcul des normales des FACES. Poids associé = aire de la face
+
+
+    for(u_int i = 0 ; i < faces_normals.size() ; i++){ // Pour éviter les "-0" qui peuvent provoquer des bugs de normales
+        if(glm::abs(faces_normals[i].x) < EPSILON){faces_normals[i].x = 0;}
+        if(glm::abs(faces_normals[i].y) < EPSILON){faces_normals[i].y = 0;}
+        if(glm::abs(faces_normals[i].z) < EPSILON){faces_normals[i].z = 0;}
+        std::cout << "Face normal [" << i << "] : " << faces_normals[i].x << "  " << faces_normals[i].y << "  " << faces_normals[i].z << std::endl;
+    }
+    std::cout << "* * * * * * * * * * *" << std::endl;
+
+    // Calcul des normales de vertices pondérées
+    compute_vertices_normals(faces_normals, indices, indexed_vertices, indexed_normals, weights);
+
     for(u_int i = 0 ; i < indexed_normals.size() ; i++){
-        std::cout << indexed_normals[i].x << "  " << indexed_normals[i].y << "  " << indexed_normals[i].z << std::endl;
+        std::cout << "Vertex normal [" << i << "] : " <<  indexed_normals[i].x << "  " << indexed_normals[i].y << "  " << indexed_normals[i].z << std::endl;
     }
 
-    // for the property, you can first use a random value for each vertices.
+    std::cout << "* * * * * * * * * * *" << std::endl;
+
 
 
     glm::vec3 bb_min( FLT_MAX, FLT_MAX, FLT_MAX );
@@ -228,7 +331,18 @@ int display(const GMap3D& gmap)
     int nbFrames = 0;
 
     do{
-
+        if(glfwGetKey(window, GLFW_KEY_UP ) == GLFW_PRESS){
+            rotate_x(0.1);
+        }
+        if(glfwGetKey(window, GLFW_KEY_RIGHT ) == GLFW_PRESS){
+            rotate_y(0.1);
+        }
+        if(glfwGetKey(window, GLFW_KEY_DOWN ) == GLFW_PRESS){
+            rotate_x(-0.1);
+        }
+        if(glfwGetKey(window, GLFW_KEY_LEFT ) == GLFW_PRESS){
+            rotate_y(-0.1);
+        }
         // Measure speed
         double currentTime = glfwGetTime();
         nbFrames++;
@@ -254,7 +368,8 @@ int display(const GMap3D& gmap)
                     glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
                     );
         // Model matrix : an identity matrix (model will be at the origin)
-        glm::mat4 ModelMatrix      = glm::scale(glm::mat4(1.0f), glm::vec3(model_scale))*glm::translate(glm::mat4(1.0f), glm::vec3(-center.x, -center.y, -center.z));
+        glm::mat4 ModelMatrix      = glm::mat4(1.0f);///*glm::scale(glm::mat4(1.0f), glm::vec3(model_scale))**/glm::translate(glm::mat4(1.0f), glm::vec3(-center.x, -center.y, -center.z));
+        ModelMatrix = model_transfo * ModelMatrix;
         glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
         // Send our transformation to the currently bound shader,
@@ -263,7 +378,7 @@ int display(const GMap3D& gmap)
         glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
         glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
-        glm::vec3 lightPos = glm::vec3(4,4,4);
+        glm::vec3 lightPos = glm::vec3(3, 3, 5);
         glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
 
         // 1rst attribute buffer : vertices
@@ -280,7 +395,7 @@ int display(const GMap3D& gmap)
 
 
         // 3rd attribute buffer : normals
-        glEnableVertexAttribArray(2);
+        glEnableVertexAttribArray(1);
         glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
         glVertexAttribPointer(
                     1,                                // attribute
@@ -292,7 +407,7 @@ int display(const GMap3D& gmap)
                     );
 
         // 4th attribute buffer : property
-        glEnableVertexAttribArray(3);
+        glEnableVertexAttribArray(2);
         glBindBuffer(GL_ARRAY_BUFFER, propertybuffer);
         glVertexAttribPointer(
                     2,                                // attribute

@@ -57,7 +57,7 @@ GMap3D question4b(){
 
 
 void question5(){
-    GMap3D mgmap = GMap3D::cube();
+    GMap3D mgmap = GMap3D::holeshape();
     int charac = mgmap.eulercharacteristic();
     printf("Euler characteristic : %i\n", charac);
     printf("Euler Group: %d\n", (int)(-(float)charac/2.0 + 1));
@@ -68,26 +68,25 @@ void question6a() {
     GMap3D mgmap = question4a();
     display(mgmap);
 }
-/*
+
 void question6b() {
     GMap3D mgmap = question4b();
     display(mgmap);
 }
 
 
-
 void question7(){
     GMap3D mgmap = GMap3D::cube();
     mgmap.print_alphas();
     mgmap = mgmap.dual();
+    printf("=================\n");
     mgmap.print_alphas();
-    //display(mgmap);
+    display(mgmap);
 }
-*/
+
+
 int main(){
-    //question1();
-    //question2();
-    question6a();
+    question7();
     puts("End of execution");
     return 0;
 }
